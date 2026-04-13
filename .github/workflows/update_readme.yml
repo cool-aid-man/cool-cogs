@@ -1,0 +1,35 @@
+name: Update Cogs README
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - '**/info.json'
+      - '**/*.py'
+  workflow_dispatch:
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run README update script
+        run: python .github_utils/update_readme.py
+
+      - name: Commit and push changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "[Auto] Update cogs list in README.md"
+          file_pattern: README.md
