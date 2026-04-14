@@ -31,9 +31,9 @@ The bot will then respond with the stored tag content::
 
     Hello world!
 
-^^^^^^^^^^^^^^^^^
-Default Variables
-^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
+Default Tag Variables
+^^^^^^^^^^^^^^^^^^^^^
 
 Tags come with built-in variable blocks you can access for more information about the invocation context.
 These are:

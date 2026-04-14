@@ -30,7 +30,34 @@ from TagScriptEngine import Block, Context, helper_parse_if
 
 
 class SilentBlock(Block):
-    # This is an undocumented block and should not be used.
+    """
+    The silent block silences the usual output of any command being used
+    in a command block. This is useful when you want a tag to execute
+    commands without their output appearing in the channel.
+
+    **Usage:** ``{silent([bool])}``
+
+    **Aliases:** ``silent``, ``silence``
+
+    **Payload:** ``None``
+
+    **Parameter:** ``bool`` (optional, defaults to ``true``)
+
+    **Example:** ::
+
+        {silent}
+        {c:ping}
+        # The ping command runs but its output is suppressed.
+
+        {silent(true)}
+        {c:ping}
+        # Same as above, explicitly enabled.
+
+        {silent(false)}
+        {c:ping}
+        # The ping command runs and its output is shown normally.
+    """
+
     def will_accept(self, ctx: Context) -> bool:
         dec = ctx.verb.declaration.lower()
         return any([dec == "silent", dec == "silence"])
@@ -44,3 +71,4 @@ class SilentBlock(Block):
             value = helper_parse_if(ctx.verb.parameter)
         ctx.response.actions["silent"] = value
         return ""
+

@@ -59,4 +59,7 @@ BLOCKS: Dict[str, str] = {
     "lower": "https://cool-cogs.readthedocs.io/en/latest/tags/tse_blocks.html#lower-block",
     "count": "https://cool-cogs.readthedocs.io/en/latest/tags/tse_blocks.html#count-block",
     "length": "https://cool-cogs.readthedocs.io/en/latest/tags/tse_blocks.html#length-block",
+    "join": "https://cool-cogs.readthedocs.io/en/latest/tags/tse_blocks.html#join-block",
+    "silent": "https://cool-cogs.readthedocs.io/en/latest/tags/parsing_blocks.html#silent-block",
+    "reply": "https://cool-cogs.readthedocs.io/en/latest/tags/parsing_blocks.html#reply-block",
 }

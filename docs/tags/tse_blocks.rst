@@ -86,6 +86,12 @@ URLEncode Block
 
 .. autoclass:: TagScriptEngine.URLEncodeBlock
 
+^^^^^^^^^^
+Join Block
+^^^^^^^^^^
+
+.. autoclass:: TagScriptEngine.JoinBlock
+
 --------------------
 Miscellaneous Blocks
 --------------------

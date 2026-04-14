@@ -68,7 +68,7 @@ class Tags(
     The TagScript documentation can be found [here](https://cool-cogs.readthedocs.io/en/latest/).
     """
 
-    __version__: Final[str] = "2.8.0"
+    __version__: Final[str] = "2.8.1"
     __author__: Final[List[str]] = ["Cool aid", "inthedark.org", "PhenoM4n4n", "sravan", "npc203"]
 
     def __init__(self, bot: Red) -> None:

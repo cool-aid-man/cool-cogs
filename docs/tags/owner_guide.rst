@@ -39,7 +39,7 @@ When a user runs a tag with a ``duck`` block, it will return a random duck image
     [p]randomduck
     # https://random-d.uk/api/121.jpg
 
-One thing to note in the above example is that the `RandomDuck.process` method is asynchronous.
+One thing to note in the above example is that the ``RandomDuck.process`` method is asynchronous.
 By default, the Tags interpreter doesn't support asynchronous blocks, but asynchronous parsing
 can be enabled as detailed in :ref:`Asynchronous Interpreter`.
 

@@ -27,7 +27,6 @@ SOFTWARE.
 from typing import Tuple
 
 from .allowed_mentions import AllowedMentionsBlock as AllowedMentionsBlock
-from .comment import CommentBlock as CommentBlock
 from .customcom import ContextVariableBlock as ContextVariableBlock
 from .customcom import ConverterBlock as ConverterBlock
 from .delete import DeleteBlock as DeleteBlock
@@ -42,5 +41,4 @@ __all__: Tuple[str, ...] = (
     "ReactBlock",
     "ContextVariableBlock",
     "ConverterBlock",
-    "CommentBlock",
 )
