@@ -5,7 +5,7 @@
 Welcome to Cool-Cogs's documentation!
 =====================================
 
-.. image:: https://github.com/user-attachments/assets/2458fb61-19ff-4b3c-a1fa-7559c069bcd1
+.. image:: https://github.com/user-attachments/assets/d072f95a-c17f-4e68-9363-43f6fc7630c3
     :target: https://github.com/cool-aid-man/cool-cogs
     :alt: Cool-Cogs
 
