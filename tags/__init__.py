@@ -25,7 +25,7 @@ SOFTWARE.
 """
 
 import json
-from importlib.metadata import PackageNotFoundError, version
+import re
 from pathlib import Path
 
 from redbot.core.bot import Red
@@ -34,16 +34,23 @@ from redbot.core.errors import CogLoadError
 from .core import Tags
 from .utils import validate_tagscriptengine
 
+VERSION_RE = re.compile(r"AdvancedTagScript==(\d+\.\d+\.\d+)")
+
 with open(Path(__file__).parent / "info.json") as fp:
     data = json.load(fp)
 
 __red_end_user_data_statement__ = data["end_user_data_statement"]
 
-try:
-    tse_version = version("AdvancedTagScript")
-except PackageNotFoundError:
+tse_version = None
+for requirement in data.get("requirements", []):
+    match = VERSION_RE.search(requirement)
+    if match:
+        tse_version = match.group(1)
+        break
+
+if not tse_version:
     raise CogLoadError(
-        "AdvancedTagScript is not installed. Please install it with: pip install AdvancedTagScript"
+        "Failed to find TagScriptEngine version number. Please report this to the cog author."
     )
 
 

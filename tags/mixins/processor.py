@@ -93,6 +93,9 @@ class Processor(MixinMeta):
             tse.CountBlock(),
             tse.LengthBlock(),
             tse.JoinBlock(),
+            tse.ListBlock(),
+            tse.CycleBlock(),
+            tse.OrdinalBlock(),
         ]
         tag_blocks: List[tse.Block] = [
             AllowedMentionsBlock(),

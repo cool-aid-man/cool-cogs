@@ -62,4 +62,10 @@ BLOCKS: Dict[str, str] = {
     "join": "https://cool-cogs.readthedocs.io/en/latest/tags/tse_blocks.html#join-block",
     "silent": "https://cool-cogs.readthedocs.io/en/latest/tags/parsing_blocks.html#silent-block",
     "reply": "https://cool-cogs.readthedocs.io/en/latest/tags/parsing_blocks.html#reply-block",
+    "in": "https://cool-cogs.readthedocs.io/en/latest/tags/tse_blocks.html#in-block",
+    "contains": "https://cool-cogs.readthedocs.io/en/latest/tags/tse_blocks.html#contains-block",
+    "index": "https://cool-cogs.readthedocs.io/en/latest/tags/tse_blocks.html#index-block",
+    "list": "https://cool-cogs.readthedocs.io/en/latest/tags/tse_blocks.html#list-block",
+    "cycle": "https://cool-cogs.readthedocs.io/en/latest/tags/tse_blocks.html#cycle-block",
+    "ord": "https://cool-cogs.readthedocs.io/en/latest/tags/tse_blocks.html#ordinal-block",
 }

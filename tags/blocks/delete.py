@@ -35,6 +35,8 @@ class DeleteBlock(Block):
 
     **Usage:** ``{delete([bool])``
 
+    **Aliases:** ``delete``, ``del``
+
     **Payload:** None
 
     **Parameter:** bool, None
@@ -43,11 +45,12 @@ class DeleteBlock(Block):
 
         {delete}
         {delete({args(1)}==delete)}
+        {del}
     """
 
     def will_accept(self, ctx: Context) -> bool:
         dec = ctx.verb.declaration.lower()
-        return dec == "delete"
+        return dec in ("delete", "del")
 
     def process(self, ctx: Context) -> Optional[str]:
         if "delete" in ctx.response.actions.keys():
