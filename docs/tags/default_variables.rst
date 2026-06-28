@@ -80,8 +80,15 @@ Target Block
 ^^^^^^^^^^^^
 
     The ``{target}`` block follows the same usage and has the same attributes as the
-    :ref:`Author Block`, but it defaults to the mentioned user in the tag
-    invocation message if any users are mentioned, or the tag author.
+    :ref:`Author Block`, but it resolves the target as follows:
+
+    - the first user **@mentioned** in the tag invocation message, if any; otherwise
+    - the first raw **user ID** in the tag's arguments, as long as that ID belongs to
+      a **member of the current server** (resolved from cache); otherwise
+    - the tag author.
+
+    Only the first match is used in each case; any further mentions or IDs are
+    ignored. An ID that is not a member of the server falls back to the tag author.
 
     **Usage:** ``{target}``
 
@@ -98,3 +105,13 @@ Server Block
 ^^^^^^^^^^^^
 
 .. autoclass:: TagScriptEngine.GuildAdapter
+
+^^^^^^^^^
+Bot Block
+^^^^^^^^^
+
+.. autoclass:: TagScriptEngine.RedBotAdapter
+
+.. warning::
+    Attributes marked ``(*)`` are owner-only: they are only available when the
+    tag is invoked by a bot owner, and return nothing for everyone else.

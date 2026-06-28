@@ -58,9 +58,11 @@ class MixinMeta(ABC):
         self.dot_parameter: Optional[bool]
         self.async_enabled: Optional[bool]
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def get_seed_from_context(ctx: commands.Context) -> Dict[str, tse.Adapter]: ...
+    def get_seed_from_context(
+        cls, ctx: commands.Context, args: str = ""
+    ) -> Dict[str, tse.Adapter]: ...
 
     @staticmethod
     @abstractmethod

@@ -27,16 +27,27 @@ SOFTWARE.
 import asyncio
 import contextlib
 import logging
+import re
+import time
 from copy import copy
 from typing import Any, Coroutine, Dict, List, Optional, Type, Union
 
 import discord
 import TagScriptEngine as tse
 from redbot.core import commands
+from redbot.core.utils.chat_formatting import text_to_file
 from redbot.core.utils.menus import start_adding_reactions
 
 from ..abc import MixinMeta
-from ..blocks import AllowedMentionsBlock, DeleteBlock, ReactBlock, ReplyBlock, SilentBlock
+from ..blocks import (
+    AllowedMentionsBlock,
+    CommandInfoBlock,
+    ComponentBlock,
+    DeleteBlock,
+    ReactBlock,
+    ReplyBlock,
+    SilentBlock,
+)
 from ..errors import BlacklistCheckFailure, RequireCheckFailure, WhitelistCheckFailure
 from ..objects import ReplyContext, SilentContext, Tag
 
@@ -44,11 +55,34 @@ log = logging.getLogger("red.coolaid.tags.processor")
 
 
 class Processor(MixinMeta):
+    # Matches {author(roleids)} / {author.roleids} and the user/target/member aliases
+    ROLEIDS_RE = re.compile(
+        r"\{(?:author|user|target|member)\s*[.(]\s*roleids", re.IGNORECASE
+    )
+
+    # A bare Discord user id (snowflake) appearing in a tag's arguments.
+    TARGET_ID_RE = re.compile(r"\b(\d{17,20})\b")
+
+    # Matches {author(banner)} / {author.banner} and the user/target/member aliases
+    BANNER_RE = re.compile(
+        r"\{(?:author|user|target|member)\s*[.(]\s*banner", re.IGNORECASE
+    )
+
+    # How long a fetched banner url is reused before another fetch is allowed.
+    BANNER_CACHE_TTL: int = 1800  # 30 minutes
+
     def __init__(self) -> None:
         self.role_converter: commands.RoleConverter = commands.RoleConverter()
         self.channel_converter: commands.TextChannelConverter = commands.TextChannelConverter()
         self.member_converter: commands.MemberConverter = commands.MemberConverter()
         self.emoji_converter: commands.EmojiConverter = commands.EmojiConverter()
+
+        # A banner is fetched at most once per TTL window per user.
+        self._banner_cache: Dict[int, tuple] = {}
+        # Per-invoker throttle on banner *fetches* (cache misses only). And reading Cache is FREE
+        self._banner_cooldown: commands.CooldownMapping = commands.CooldownMapping.from_cooldown(
+            1, 10.0, commands.BucketType.user
+        )
 
         self.bot.add_dev_env_value("tse", lambda ctx: tse)
         super().__init__()
@@ -99,6 +133,8 @@ class Processor(MixinMeta):
         ]
         tag_blocks: List[tse.Block] = [
             AllowedMentionsBlock(),
+            CommandInfoBlock(self.bot),
+            ComponentBlock(),
             DeleteBlock(),
             SilentBlock(),
             ReplyBlock(),
@@ -143,22 +179,78 @@ class Processor(MixinMeta):
         ctx = await self.bot.get_context(new_message)
         await self.bot.invoke(ctx)
 
-    @staticmethod
-    def get_seed_from_context(ctx: commands.Context) -> Dict[str, tse.Adapter]:
+    @classmethod
+    def _resolve_target_member(
+        cls, ctx: commands.Context, args: str
+    ) -> Optional[discord.Member]:
+        # Only the first match is used, the rest are ignored.
+        # An @mention always wins; failing that, the first raw user id
+        # in the arguments is resolved - but only if that id is a member of this guild
+        if ctx.message.mentions:
+            first = ctx.message.mentions[0]
+            return first if isinstance(first, discord.Member) else None
+        if ctx.guild and args:
+            match = cls.TARGET_ID_RE.search(args)
+            if match:
+                return ctx.guild.get_member(int(match.group(1)))
+        return None
+
+    @classmethod
+    def get_seed_from_context(
+        cls, ctx: commands.Context, args: str = ""
+    ) -> Dict[str, tse.Adapter]:
         author = tse.MemberAdapter(ctx.author)
-        target = tse.MemberAdapter(ctx.message.mentions[0]) if ctx.message.mentions else author
+        member = cls._resolve_target_member(ctx, args)
+        target = tse.MemberAdapter(member) if member is not None else author
         channel = tse.ChannelAdapter(ctx.channel)
+        bot = tse.RedBotAdapter(
+            ctx.bot, owner=ctx.author.id in (ctx.bot.owner_ids or set())
+        )
         seed = {
             "author": author,
             "user": author,
             "target": target,
             "member": target,
             "channel": channel,
+            "bot": bot,
         }
         if ctx.guild:
             guild = tse.GuildAdapter(ctx.guild)
             seed.update(guild=guild, server=guild)
         return seed
+
+    async def _inject_banners(
+        self, ctx: commands.Context, seed: Dict[str, tse.Adapter]
+    ) -> None:
+        # The banner is empty by default; we only override it when a fetch succeeds.
+        for key in ("author", "target"):
+            adapter = seed.get(key)
+            member = getattr(adapter, "object", None)
+            if member is None:
+                continue
+            url = await self._resolve_banner(ctx, member.id)
+            if url is not None:
+                adapter._attributes["banner"] = url
+
+    async def _resolve_banner(self, ctx: commands.Context, user_id: int) -> Optional[str]:
+        # A fresh cache hit is free - it never touches
+        # the cooldown or the API. Only a miss/expiry attempts a fetch, and that
+        # fetch is gated by a per-invoker cooldown; if the caller is on cooldown
+        # the last-known (stale) url is served instead, or None if there is none.
+        now = time.monotonic()
+        cached = self._banner_cache.get(user_id)
+        if cached is not None and now - cached[0] < self.BANNER_CACHE_TTL:
+            return cached[1]
+        bucket = self._banner_cooldown.get_bucket(ctx.message)
+        if bucket is not None and bucket.update_rate_limit():
+            return cached[1] if cached is not None else None
+        try:
+            user = await self.bot.fetch_user(user_id)
+        except discord.HTTPException:
+            return cached[1] if cached is not None else None
+        url = user.banner.url if user.banner else ""
+        self._banner_cache[user_id] = (now, url)
+        return url
 
     async def process_tag(
         self,
@@ -169,7 +261,13 @@ class Processor(MixinMeta):
         **kwargs: Any,
     ) -> Optional[str]:
         seed_variables = {} if seed_variables is None else seed_variables
-        seed = self.get_seed_from_context(ctx)
+        # If the tag was invoked with arguments, let {target} fall back to the
+        # first raw user id in them (guild members only) when no @mention exists.
+        args_adapter = seed_variables.get("args")
+        args_text = args_adapter.string if isinstance(args_adapter, tse.StringAdapter) else ""
+        seed = self.get_seed_from_context(ctx, args_text)
+        if self.BANNER_RE.search(tag.tagscript):
+            await self._inject_banners(ctx, seed)
         seed_variables.update(seed)
 
         output = await tag.run(seed_variables, **kwargs)
@@ -178,7 +276,17 @@ class Processor(MixinMeta):
         self.bot.dispatch("commandstats_action_v2", f"{dispatch_prefix}:{tag}", ctx.guild)
         to_gather = []
         command_messages = []
-        content = output.body[:2000] if output.body else None
+        content = output.body if output.body else None
+        # Output longer than Discord's limit is normally truncated. The ONly
+        # exception is {author(roleids)} (and its user/target/member aliases):
+        # the full list is sent as a .txt attachment instead of being cut off.
+        # Everything else keeps the original truncation behaviour.
+        send_as_file = False
+        if content and len(content) > 2000:
+            if self.ROLEIDS_RE.search(tag.tagscript):
+                send_as_file = True
+            else:
+                content = content[:2000]
         actions = output.actions
 
         if actions:
@@ -207,7 +315,7 @@ class Processor(MixinMeta):
                     command_messages.append(new)
 
         # this is going to become an asynchronous swamp
-        msg = await self.send_tag_response(ctx, actions, content)
+        msg = await self.send_tag_response(ctx, actions, content, as_file=send_as_file)
         if msg and (react := actions.get("react")):
             to_gather.append(self.react_to_list(ctx, msg, react))
         if command_messages:
@@ -231,10 +339,13 @@ class Processor(MixinMeta):
         ctx: commands.Context,
         actions: Dict[str, Any],
         content: Optional[str] = None,
+        *,
+        as_file: bool = False,
         **kwargs: Any,
     ) -> Optional[discord.Message]:
         destination = ctx.channel
         embed = actions.get("embed")
+        components_v2 = actions.get("components_v2")
         replying = False
 
         if reply := actions.get("reply"):
@@ -255,10 +366,24 @@ class Processor(MixinMeta):
                     if chan.permissions_for(ctx.me).send_messages:
                         destination = chan
 
-        if not (content or embed is not None):
+        if not (content or embed is not None or components_v2):
             return
 
-        kwargs["embed"] = embed
+        if components_v2:
+            # A Components V2 message cannot carry content or embeds, so 
+            # plain text is folded as 1st block & anything else is dropped
+            leading = content
+            if as_file and content:
+                # {author(roleids)} overflow: keep it as a .txt attachment
+                # rather than folding a huge id list into the layout.
+                kwargs.setdefault("files", []).append(
+                    text_to_file(content, filename="roleids.txt")
+                )
+                leading = None
+            kwargs["view"] = self.build_components_v2_view(components_v2, leading)
+            content = None
+        else:
+            kwargs["embed"] = embed
 
         if allowed_mentions := actions.get("allowed_mentions"):
             if isinstance(ctx.author, discord.Member):
@@ -279,7 +404,77 @@ class Processor(MixinMeta):
             ref = ctx.message.to_reference(fail_if_not_exists=False)
             kwargs["reference"] = ref
 
+        # Only set for {author(roleids)} overflow: send the full list as a .txt
+        # attachment instead of truncating it. Any embed/reply still applies.
+        if content and as_file:
+            kwargs.setdefault("files", []).append(
+                text_to_file(content, filename="roleids.txt")
+            )
+            content = None
+
         return await self.send_quietly(destination, content, **kwargs)
+
+    @staticmethod
+    def build_components_v2_view(
+        layout: Dict[str, Any], leading_content: Optional[str] = None
+    ) -> discord.ui.LayoutView:
+        items: List[Dict[str, Any]] = []
+        if leading_content:
+            # The folded-in plain output counts toward the 4000-char V2 text
+            # cap, so trim it to whatever budget the layout's text leaves.
+            used = sum(
+                len(i["content"])
+                for i in layout["items"]
+                if i["type"] in ("text", "section")
+            )
+            remaining = 4000 - used
+            if remaining <= 0:
+                leading_content = None
+            elif len(leading_content) > remaining:
+                leading_content = leading_content[: max(0, remaining - 1)] + "…"
+            if leading_content:
+                items.append({"type": "text", "content": leading_content})
+        items.extend(layout["items"])
+
+        children: List[discord.ui.Item] = []
+        for item in items:
+            kind = item["type"]
+            if kind == "text":
+                children.append(discord.ui.TextDisplay(item["content"]))
+            elif kind == "section":
+                text = item.get("content") or "​"
+                children.append(
+                    discord.ui.Section(
+                        text, accessory=discord.ui.Thumbnail(item["thumbnail"])
+                    )
+                )
+            elif kind == "separator":
+                spacing = (
+                    discord.SeparatorSpacing.large
+                    if item["large"]
+                    else discord.SeparatorSpacing.small
+                )
+                children.append(
+                    discord.ui.Separator(visible=item["visible"], spacing=spacing)
+                )
+            elif kind == "gallery":
+                children.append(
+                    discord.ui.MediaGallery(
+                        *[discord.MediaGalleryItem(url) for url in item["urls"]]
+                    )
+                )
+
+        if not children:
+            children.append(discord.ui.TextDisplay("​"))
+
+        view = discord.ui.LayoutView(timeout=None)
+        accent = layout.get("accent_color")
+        if layout.get("framed") or accent is not None:
+            view.add_item(discord.ui.Container(*children, accent_colour=accent))
+        else:
+            for child in children:
+                view.add_item(child)
+        return view
 
     async def process_commands(
         self, messages: List[discord.Message], silent: bool, reply: bool, overrides: Dict[Any, Any]

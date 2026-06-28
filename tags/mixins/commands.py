@@ -473,23 +473,21 @@ class Commands(MixinMeta):
         try:
             block: str = BLOCKS[keyword.lower()]
         except KeyError:
-            await ctx.send(
-                embed=discord.Embed(
-                    **embed,
-                    description=(
-                        "Could not find a block with that name `{keyword}`\n\n"
-                        "**Available Blocks**\n{blocks}"
-                    ).format(
-                        keyword=keyword.lower(),
-                        blocks="\n".join(
-                            [
-                                "- [{name}]({url})".format(name=name, url=url)
-                                for name, url in BLOCKS.items()
-                            ]
-                        ),
+            # As the full block list can exceed an embed's 4096-char description
+            # so paginate it across button-menu pages
+            header: str = "Could not find a block with that name `{}`".format(keyword.lower())
+            items = sorted(BLOCKS.items())
+            embeds = []
+            for page in chunks(items, 15):
+                page_embed = discord.Embed(**embed)
+                page_embed.description = "{header}\n\n**Available Blocks**\n{blocks}".format(
+                    header=header,
+                    blocks="\n".join(
+                        "- [{name}]({url})".format(name=name, url=url) for name, url in page
                     ),
                 )
-            )
+                embeds.append(page_embed)
+            await menu(ctx, embeds)
             return
 
         await ctx.send(

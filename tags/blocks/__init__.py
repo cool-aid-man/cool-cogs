@@ -27,6 +27,8 @@ SOFTWARE.
 from typing import Tuple
 
 from .allowed_mentions import AllowedMentionsBlock as AllowedMentionsBlock
+from .commandinfo import CommandInfoBlock as CommandInfoBlock
+from .component import ComponentBlock as ComponentBlock
 from .customcom import ContextVariableBlock as ContextVariableBlock
 from .customcom import ConverterBlock as ConverterBlock
 from .delete import DeleteBlock as DeleteBlock
@@ -35,6 +37,9 @@ from .reply import ReplyBlock as ReplyBlock
 from .silent import SilentBlock as SilentBlock
 
 __all__: Tuple[str, ...] = (
+    "AllowedMentionsBlock",
+    "CommandInfoBlock",
+    "ComponentBlock",
     "DeleteBlock",
     "SilentBlock",
     "ReplyBlock",

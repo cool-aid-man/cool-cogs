@@ -42,6 +42,12 @@ Embed Block
 
 .. autoclass:: TagScriptEngine.EmbedBlock
 
+^^^^^^^^^^^^^^^
+Component Block
+^^^^^^^^^^^^^^^
+
+.. autoclass:: tags.blocks.ComponentBlock
+
 ^^^^^^^^^^^^^^
 Redirect Block
 ^^^^^^^^^^^^^^
@@ -72,6 +78,12 @@ Command Block
 ^^^^^^^^^^^^^
 
 .. autoclass:: TagScriptEngine.CommandBlock
+
+^^^^^^^^^^^^^^^^^^
+Command Info Block
+^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: TagScriptEngine.RedCommandAdapter
 
 ^^^^^^^^^^^^^^
 Override Block

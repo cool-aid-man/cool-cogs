@@ -13,7 +13,7 @@
     ],
     "required_cogs": {},
     "requirements": [
-        "AdvancedTagScript==3.3.0",
+        "AdvancedTagScript==3.3.2",
         "tabulate",
         "rapidfuzz",
         "wtforms",
