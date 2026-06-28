@@ -19,5 +19,5 @@ Below is an updated list of all the cogs in this repository.
 <!-- START_COGS_TABLE -->
 | ⚙️ Cog | 📝 Description | 🧑‍💻 Author | 📌 Version |
 |:---|:---|:---|:---|
-| **[Tags](./tags)** | Create and use tags. | Cool aid, inthedark.org, PhenoM4n4n, sravan, npc203 | `v2.8.2` |
+| **[Tags](./tags)** | Create and use tags. | Cool aid, inthedark.org, PhenoM4n4n, sravan, npc203 | `v3.0.0` |
 <!-- END_COGS_TABLE -->
